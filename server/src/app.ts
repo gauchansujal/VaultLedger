@@ -6,6 +6,7 @@ import morgan from 'morgan';
 import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import { env } from './config/env';
+import authRouter from './routes/auth.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -59,14 +60,14 @@ export function createApp(): Application {
     res.status(200).json({ status: 'ok' });
   });
 
-  // --- Routes will be mounted here as we build them ---
-  // app.use('/api/auth', authRouter);
+  // --- Routes ---
+  app.use('/api/auth', authRouter);
   // app.use('/api/users', userRouter);
   // app.use('/api/transactions', transactionRouter);
   // app.use('/api/audit-log', auditLogRouter);
 
   // --- 404 handler ---
-  app.use((req: Request, res: Response) => {
+  app.use((_req: Request, res: Response) => {
     res.status(404).json({ message: 'Not found' });
   });
 
