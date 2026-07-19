@@ -66,7 +66,7 @@ export function createApp(): Application {
   // app.use('/api/audit-log', auditLogRouter);
 
   // --- 404 handler ---
-  app.use((_req: Request, res: Response) => {
+  app.use((req: Request, res: Response) => {
     res.status(404).json({ message: 'Not found' });
   });
 
