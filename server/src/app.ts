@@ -7,6 +7,9 @@ import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 import { env } from './config/env';
 import authRouter from './routes/auth.routes';
+import auditLogRouter from './routes/auditLog.routes';
+import userRouter from './routes/user.routes';
+import transactionRouter from './routes/transaction.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -62,9 +65,9 @@ export function createApp(): Application {
 
   // --- Routes ---
   app.use('/api/auth', authRouter);
-  // app.use('/api/users', userRouter);
-  // app.use('/api/transactions', transactionRouter);
-  // app.use('/api/audit-log', auditLogRouter);
+  app.use('/api/audit-log', auditLogRouter);
+  app.use('/api/users', userRouter);
+  app.use('/api/transactions', transactionRouter);
 
   // --- 404 handler ---
   app.use((_req: Request, res: Response) => {

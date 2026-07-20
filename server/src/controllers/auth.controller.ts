@@ -3,8 +3,9 @@ import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { User } from '../models/User.model';
 import { hashPassword, verifyPassword } from '../utils/password';
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
+import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../utils/jwt';
 import { encryptField, decryptField } from '../utils/encryption';
+import { logAuditEvent } from '../utils/auditLogger';
 import { env } from '../config/env';
 import { RegisterInput, LoginInput } from '../utils/validation/auth.schema';
 
@@ -40,6 +41,8 @@ export async function register(req: Request, res: Response): Promise<void> {
     passwordHash,
     role: 'user', // role is NEVER taken from client input - always defaulted server-side
   });
+
+  await logAuditEvent({ req, action: 'user.register', userId: user.id });
 
   res.status(201).json({
     message: 'Registration successful',
@@ -78,9 +81,14 @@ export async function login(req: Request, res: Response): Promise<void> {
     if (user.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
       user.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
       user.failedLoginAttempts = 0; // reset counter, lock is now the active penalty
+      await user.save();
+      await logAuditEvent({ req, action: 'user.login.locked', userId: user.id });
+      genericFail();
+      return;
     }
 
     await user.save();
+    await logAuditEvent({ req, action: 'user.login.failed', userId: user.id });
     genericFail();
     return;
   }
@@ -131,9 +139,24 @@ export async function login(req: Request, res: Response): Promise<void> {
     .cookie('refreshToken', refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000))
     .status(200)
     .json({ message: 'Login successful' });
+
+  await logAuditEvent({ req, action: 'user.login.success', userId: user.id });
 }
 
-export async function logout(_req: Request, res: Response): Promise<void> {
+export async function logout(req: Request, res: Response): Promise<void> {
+  // Best-effort: try to identify who's logging out for the audit trail, but never block
+  // the logout itself on an invalid/expired token - users must always be able to clear
+  // their session client-side.
+  const token = req.cookies?.accessToken;
+  if (token) {
+    try {
+      const payload = verifyAccessToken(token);
+      await logAuditEvent({ req, action: 'user.logout', userId: payload.sub });
+    } catch {
+      // token invalid/expired - nothing to attribute the logout to, proceed anyway
+    }
+  }
+
   res
     .clearCookie('accessToken')
     .clearCookie('refreshToken')
@@ -163,6 +186,8 @@ export async function refresh(req: Request, res: Response): Promise<void> {
       role: user.role,
       mfaVerified: user.mfaEnabled,
     });
+
+    await logAuditEvent({ req, action: 'user.token.refresh', userId: user.id });
 
     res.cookie('accessToken', accessToken, cookieOptions(15 * 60 * 1000)).status(200).json({
       message: 'Token refreshed',
@@ -223,6 +248,8 @@ export async function verifyAndEnableMfa(req: Request, res: Response): Promise<v
 
   user.mfaEnabled = true;
   await user.save();
+
+  await logAuditEvent({ req, action: 'user.mfa.enabled', userId: user.id });
 
   res.status(200).json({ message: 'MFA enabled successfully' });
 }
