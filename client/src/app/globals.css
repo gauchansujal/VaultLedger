@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-vault-bg text-vault-text font-body antialiased;
+  }
+
+  ::selection {
+    @apply bg-vault-gold/30 text-vault-text;
+  }
+
+  /* Visible keyboard focus - accessibility requirement, never remove */
+  :focus-visible {
+    outline: 2px solid theme('colors.vault.gold');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .vault-card {
+    @apply bg-vault-surface border border-vault-border rounded-vault;
+  }
+
+  .vault-input {
+    @apply w-full bg-vault-surface2 border border-vault-border rounded-vault px-4 py-2.5
+      text-vault-text placeholder:text-vault-textMuted
+      focus:border-vault-gold focus:outline-none transition-colors;
+  }
+
+  .vault-btn-primary {
+    @apply bg-vault-gold text-vault-bg font-semibold rounded-vault px-5 py-2.5
+      hover:bg-vault-goldMuted transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .vault-btn-secondary {
+    @apply bg-transparent border border-vault-border text-vault-text font-medium rounded-vault px-5 py-2.5
+      hover:border-vault-gold transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .vault-label {
+    @apply block text-sm font-medium text-vault-textMuted mb-1.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
