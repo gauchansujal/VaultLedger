@@ -27,9 +27,14 @@ services:
       # Override MONGO_URI to point at the 'mongo' service name (Docker's internal DNS),
       # not localhost - localhost inside a container refers to the container itself, not the host.
       MONGO_URI: mongodb://mongo:27017/vaultledger
+    volumes:
+      # Persist uploaded avatars across container restarts/rebuilds - without this,
+      # every `docker compose up --build` would wipe all uploaded profile pictures.
+      - vaultledger-avatars:/app/uploads
     depends_on:
       mongo:
         condition: service_healthy
 
 volumes:
   vaultledger-mongo-data:
+  vaultledger-avatars:

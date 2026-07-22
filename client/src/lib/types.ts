@@ -32,8 +32,24 @@ export interface UserProfile {
   id: string;
   email: string;
   role: 'user' | 'household-admin' | 'system-admin';
+  avatarUrl?: string;
   mfaEnabled: boolean;
   createdAt: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: 'user' | 'household-admin' | 'system-admin';
+  avatarUrl?: string;
+  mfaEnabled: boolean;
+  isLocked: boolean;
+  createdAt: string;
+}
+
+export interface AdminUserListResponse {
+  users: AdminUser[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
 export interface AuditLogEntry {

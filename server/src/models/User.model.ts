@@ -6,6 +6,7 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   role: UserRole;
+  avatarUrl?: string;
   mfaEnabled: boolean;
   mfaSecret?: string; // encrypted at rest (see utils/encryption.ts) before saving
   failedLoginAttempts: number;
@@ -37,6 +38,9 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ['user', 'household-admin', 'system-admin'],
       default: 'user',
+    },
+    avatarUrl: {
+      type: String,
     },
     mfaEnabled: {
       type: Boolean,

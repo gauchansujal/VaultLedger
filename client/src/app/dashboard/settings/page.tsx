@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent, useRef } from 'react';
+import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import type { UserProfile } from '@/lib/types';
+import { Avatar } from '@/components/Avatar';
+
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB - must match server limit
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -13,6 +17,10 @@ export default function SettingsPage() {
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaSuccess, setMfaSuccess] = useState(false);
   const [mfaBusy, setMfaBusy] = useState(false);
+
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -25,6 +33,37 @@ export default function SettingsPage() {
     }
     load();
   }, []);
+
+  async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAvatarError(null);
+
+    // Client-side checks are a UX convenience only - the server re-validates and
+    // re-encodes every upload regardless, so these checks are not a security boundary.
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setAvatarError('Please choose a JPEG, PNG, or WEBP image.');
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setAvatarError('Image must be smaller than 2MB.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await api.upload<{ avatarUrl: string }>('/api/users/me/avatar', formData);
+      setProfile((p) => (p ? { ...p, avatarUrl: res.avatarUrl } : p));
+    } catch (err) {
+      setAvatarError(err instanceof ApiError ? err.message : 'Upload failed');
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
 
   async function startMfaSetup() {
     setMfaError(null);
@@ -65,6 +104,29 @@ export default function SettingsPage() {
 
       <section className="vault-card p-5 mb-6">
         <h2 className="font-display font-semibold text-vault-text mb-4">Profile</h2>
+
+        <div className="flex items-center gap-4 mb-5">
+          <Avatar avatarUrl={profile?.avatarUrl} email={profile?.email ?? ''} size={64} />
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleAvatarSelect}
+              className="hidden"
+              id="avatar-input"
+            />
+            <label
+              htmlFor="avatar-input"
+              className="vault-btn-secondary cursor-pointer inline-block text-sm"
+            >
+              {avatarUploading ? 'Uploading…' : 'Change photo'}
+            </label>
+            <p className="text-vault-textMuted text-xs mt-1.5">JPEG, PNG, or WEBP. Max 2MB.</p>
+            {avatarError && <p className="text-vault-danger text-xs mt-1">{avatarError}</p>}
+          </div>
+        </div>
+
         <dl className="space-y-2 text-sm">
           <div className="flex justify-between">
             <dt className="text-vault-textMuted">Email</dt>
@@ -83,7 +145,7 @@ export default function SettingsPage() {
         </dl>
       </section>
 
-      <section className="vault-card p-5">
+      <section className="vault-card p-5 mb-6">
         <div className="flex items-center justify-between mb-1">
           <h2 className="font-display font-semibold text-vault-text">Two-factor authentication</h2>
           {profile?.mfaEnabled && (
@@ -137,6 +199,19 @@ export default function SettingsPage() {
           </>
         )}
       </section>
+
+      {profile?.role === 'system-admin' && (
+        <section className="vault-card p-5">
+          <h2 className="font-display font-semibold text-vault-text mb-2">Administration</h2>
+          <p className="text-vault-textMuted text-sm mb-4">
+            You have system-admin access. Manage users and roles from the admin panel.
+          </p>
+          <Link href="/dashboard/admin" className="vault-btn-secondary inline-block">
+            Open admin panel
+          </Link>
+        </section>
+      )}
     </div>
   );
 }
+

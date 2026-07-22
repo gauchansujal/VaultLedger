@@ -5,7 +5,7 @@ import argon2 from 'argon2';
 // Parameters below follow OWASP's minimum recommendation for argon2id (2024 guidance):
 // memoryCost >= 19456 KiB (~19 MB), timeCost >= 2, parallelism = 1.
 // Tuned slightly above minimum since this app doesn't need to handle huge concurrent login volume.
-const ARGON2_OPTIONS = {
+const ARGON2_OPTIONS: argon2.HashOptions = {
   type: argon2.argon2id,
   memoryCost: 2 ** 16, // 64 MB
   timeCost: 3,

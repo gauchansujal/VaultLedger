@@ -13,6 +13,7 @@ export type AuditAction =
   | 'transaction.update'
   | 'transaction.delete'
   | 'profile.update'
+  | 'profile.avatar.update'
   | 'admin.role.change';
 
 export interface IAuditLog extends Document {
