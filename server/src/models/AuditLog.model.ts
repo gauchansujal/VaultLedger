@@ -14,7 +14,11 @@ export type AuditAction =
   | 'transaction.delete'
   | 'profile.update'
   | 'profile.avatar.update'
-  | 'admin.role.change';
+  | 'admin.role.change'
+  | 'admin.user.update'
+  | 'admin.user.delete'
+  | 'admin.transaction.view'
+  | 'admin.transaction.delete';
 
 export interface IAuditLog extends Document {
   userId?: mongoose.Types.ObjectId; // who performed the action (undefined for anonymous/failed pre-auth events)

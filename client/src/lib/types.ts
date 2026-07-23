@@ -52,6 +52,22 @@ export interface AdminUserListResponse {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
+export interface AdminTransaction {
+  id: string;
+  ownerEmail: string;
+  type: TransactionType;
+  category: TransactionCategory;
+  amount: number;
+  currency: string;
+  note?: string;
+  occurredAt: string;
+}
+
+export interface AdminTransactionListResponse {
+  transactions: AdminTransaction[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
 export interface AuditLogEntry {
   id: string;
   action: string;
