@@ -13,6 +13,7 @@ import auditLogRouter from './routes/auditLog.routes';
 import userRouter from './routes/user.routes';
 import transactionRouter from './routes/transaction.routes';
 import adminRouter from './routes/admin.routes';
+import { ipBlocklistGuard } from './middleware/ipFilter.middleware';
 
 export function createApp(): Application {
   const app = express();
@@ -44,6 +45,9 @@ export function createApp(): Application {
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     })
   );
+
+  // --- IP blocklist (app-wide) - checked before anything else runs for the request ---
+  app.use(ipBlocklistGuard);
 
   // --- Body parsing with size limits (mitigates payload-based DoS) ---
   app.use(express.json({ limit: '10kb' }));

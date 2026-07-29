@@ -8,6 +8,8 @@ export type AuditAction =
   | 'user.logout'
   | 'user.mfa.enabled'
   | 'user.token.refresh'
+  | 'user.password.reset_requested'
+  | 'user.password.reset_completed'
   | 'transaction.create'
   | 'transaction.view'
   | 'transaction.update'

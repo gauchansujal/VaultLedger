@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { User } from '../models/User.model';
@@ -6,8 +7,9 @@ import { hashPassword, verifyPassword } from '../utils/password';
 import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../utils/jwt';
 import { encryptField, decryptField } from '../utils/encryption';
 import { logAuditEvent } from '../utils/auditLogger';
+import { sendMail } from '../utils/mailer';
 import { env } from '../config/env';
-import { RegisterInput, LoginInput } from '../utils/validation/auth.schema';
+import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput } from '../utils/validation/auth.schema';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -252,4 +254,90 @@ export async function verifyAndEnableMfa(req: Request, res: Response): Promise<v
   await logAuditEvent({ req, action: 'user.mfa.enabled', userId: user.id });
 
   res.status(200).json({ message: 'MFA enabled successfully' });
+}
+
+// --- Password reset flow ---
+
+const RESET_TOKEN_BYTES = 32;
+
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  const { email } = req.body as ForgotPasswordInput;
+
+  const user = await User.findOne({ email });
+
+  // Always return the same generic response whether or not the email exists - this is
+  // the standard anti-enumeration pattern for password reset endpoints specifically.
+  // Without this, an attacker could use "did I get a reset email?" as an oracle to
+  // discover which emails are registered.
+  const genericResponse = () =>
+    res.status(200).json({
+      message: 'If an account exists for that email, a password reset link has been sent.',
+    });
+
+  if (!user) {
+    genericResponse();
+    return;
+  }
+
+  // Generate a random token, send the RAW token to the user, store only its hash.
+  // This mirrors password storage: even a full database leak doesn't hand an attacker
+  // usable reset tokens, because the hash alone can't be reversed back to the token
+  // that would need to be presented in the reset link.
+  const rawToken = crypto.randomBytes(RESET_TOKEN_BYTES).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+  user.passwordResetTokenHash = tokenHash;
+  user.passwordResetExpires = new Date(Date.now() + env.passwordResetTokenExpiresMinutes * 60 * 1000);
+  await user.save();
+
+  const resetUrl = `${env.clientOrigin}/reset-password?token=${rawToken}`;
+
+  await sendMail(
+    user.email,
+    'Reset your VaultLedger password',
+    `We received a request to reset your VaultLedger password.\n\n` +
+      `Click the link below to choose a new password. This link expires in ` +
+      `${env.passwordResetTokenExpiresMinutes} minutes and can only be used once:\n\n` +
+      `${resetUrl}\n\n` +
+      `If you didn't request this, you can safely ignore this email - your password ` +
+      `will not be changed.`
+  );
+
+  await logAuditEvent({ req, action: 'user.password.reset_requested', userId: user.id });
+
+  genericResponse();
+}
+
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  const { token, newPassword } = req.body as ResetPasswordInput;
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+  const user = await User.findOne({
+    passwordResetTokenHash: tokenHash,
+    passwordResetExpires: { $gt: new Date() },
+  }).select('+passwordResetTokenHash +passwordResetExpires');
+
+  if (!user) {
+    // Same message whether the token is invalid, expired, or already used (tokens are
+    // cleared after use, see below) - don't help an attacker distinguish these cases.
+    res.status(400).json({ message: 'This reset link is invalid or has expired.' });
+    return;
+  }
+
+  user.passwordHash = await hashPassword(newPassword);
+  user.passwordChangedAt = new Date();
+  user.passwordResetTokenHash = undefined;
+  user.passwordResetExpires = undefined;
+
+  // Invalidate every existing session (all previously issued refresh tokens become
+  // worthless) - if the account was reset because it was compromised, this kicks out
+  // whoever was previously logged in, not just on the device doing the reset.
+  user.refreshTokenVersion += 1;
+
+  await user.save();
+
+  await logAuditEvent({ req, action: 'user.password.reset_completed', userId: user.id });
+
+  res.status(200).json({ message: 'Password reset successfully. Please sign in with your new password.' });
 }

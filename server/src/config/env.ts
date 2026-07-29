@@ -27,6 +27,27 @@ export const env = {
 
   loginRateLimitWindowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS ?? 900000),
   loginRateLimitMaxAttempts: Number(process.env.LOGIN_RATE_LIMIT_MAX_ATTEMPTS ?? 5),
+
+  // Email - if smtpHost is unset, mailer.ts falls back to console logging (dev-safe default)
+  smtpHost: process.env.SMTP_HOST,
+  smtpPort: Number(process.env.SMTP_PORT ?? 587),
+  smtpUser: process.env.SMTP_USER,
+  smtpPass: process.env.SMTP_PASS,
+  mailFrom: process.env.MAIL_FROM ?? 'VaultLedger <no-reply@vaultledger.local>',
+
+  // Password reset tokens are single-use and short-lived by design
+  passwordResetTokenExpiresMinutes: Number(process.env.PASSWORD_RESET_TOKEN_EXPIRES_MINUTES ?? 30),
+
+  // IP allow/block-listing - comma-separated IPs, empty = feature disabled (fail open,
+  // not fail closed, so a misconfiguration doesn't accidentally lock out the whole app)
+  ipBlocklist: (process.env.IP_BLOCKLIST ?? '')
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter(Boolean),
+  adminIpAllowlist: (process.env.ADMIN_IP_ALLOWLIST ?? '')
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter(Boolean),
 };
 
 // Fail fast: a 32-byte key must be exactly 64 hex chars for AES-256-GCM
