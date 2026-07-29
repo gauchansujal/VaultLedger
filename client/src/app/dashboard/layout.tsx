@@ -48,6 +48,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <span className="font-display font-semibold text-vault-text">VaultLedger</span>
         </div>
 
+        {profile && (
+          <Link
+            href="/dashboard/settings"
+            className="flex items-center gap-2.5 px-5 py-4 border-b border-vault-border hover:bg-vault-surface2 transition-colors"
+          >
+            <Avatar avatarUrl={profile.avatarUrl} email={profile.email} size={36} />
+            <div className="min-w-0">
+              <p className="text-vault-text text-sm font-medium truncate">{profile.email}</p>
+              <p className="text-vault-textMuted text-xs capitalize">{profile.role.replace('-', ' ')}</p>
+            </div>
+          </Link>
+        )}
+
         <nav className="flex-1 px-3 py-4 space-y-1">
           {navItems.map((item) => {
             const active = pathname === item.href;
@@ -68,15 +81,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div className="px-3 py-3 border-t border-vault-border">
-          {profile && (
-            <Link
-              href="/dashboard/settings"
-              className="flex items-center gap-2.5 px-2 py-2 rounded-vault hover:bg-vault-surface2 transition-colors mb-1"
-            >
-              <Avatar avatarUrl={profile.avatarUrl} email={profile.email} size={28} />
-              <span className="text-vault-textMuted text-xs font-mono truncate">{profile.email}</span>
-            </Link>
-          )}
           <button
             onClick={handleLogout}
             className="w-full text-left px-2 py-2 rounded-vault text-sm font-medium text-vault-textMuted hover:text-vault-danger hover:bg-vault-surface2 transition-colors"
