@@ -3,13 +3,20 @@ import crypto from 'crypto';
 import speakeasy from 'speakeasy';
 import QRCode from 'qrcode';
 import { User } from '../models/User.model';
-import { hashPassword, verifyPassword } from '../utils/password';
+import { hashPassword, verifyPassword, isPasswordReused } from '../utils/password';
 import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from '../utils/jwt';
 import { encryptField, decryptField } from '../utils/encryption';
 import { logAuditEvent } from '../utils/auditLogger';
 import { sendMail } from '../utils/mailer';
+import { hashUserAgent } from '../utils/session';
 import { env } from '../config/env';
-import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput } from '../utils/validation/auth.schema';
+import {
+  RegisterInput,
+  LoginInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+  ChangePasswordInput,
+} from '../utils/validation/auth.schema';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -41,6 +48,7 @@ export async function register(req: Request, res: Response): Promise<void> {
   const user = await User.create({
     email,
     passwordHash,
+    passwordChangedAt: new Date(),
     role: 'user', // role is NEVER taken from client input - always defaulted server-side
   });
 
@@ -85,6 +93,20 @@ export async function login(req: Request, res: Response): Promise<void> {
       user.failedLoginAttempts = 0; // reset counter, lock is now the active penalty
       await user.save();
       await logAuditEvent({ req, action: 'user.login.locked', userId: user.id });
+
+      // Real-time security alert - the account owner finds out immediately, not just
+      // via the audit log they'd have to think to go check. If this wasn't the real
+      // user attempting to log in, they now know their account is under attack.
+      await sendMail(
+        user.email,
+        'Security alert: your VaultLedger account was locked',
+        `Your account was temporarily locked after ${MAX_FAILED_ATTEMPTS} failed login attempts, ` +
+          `most recently from IP address ${req.ip ?? 'unknown'}.\n\n` +
+          `If this wasn't you, we recommend resetting your password once the lock expires ` +
+          `(in 15 minutes) using the "Forgot password" link on the sign-in page.\n\n` +
+          `If this was you, you can simply try again in 15 minutes.`
+      );
+
       genericFail();
       return;
     }
@@ -100,6 +122,23 @@ export async function login(req: Request, res: Response): Promise<void> {
     user.failedLoginAttempts = 0;
     user.lockUntil = undefined;
     await user.save();
+  }
+
+  // Password expiry check - deliberately AFTER verifying the password is correct, so
+  // an attacker probing with wrong passwords can't use "expired vs invalid" as an
+  // oracle to learn anything about the account. Only a genuinely correct password
+  // reveals whether it's also expired.
+  if (user.passwordChangedAt) {
+    const ageMs = Date.now() - user.passwordChangedAt.getTime();
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+    if (ageDays > env.passwordExpiryDays) {
+      res.status(403).json({
+        message: 'Your password has expired and must be reset before you can sign in.',
+        passwordExpired: true,
+      });
+      return;
+    }
   }
 
   // MFA step
@@ -134,6 +173,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   const refreshToken = signRefreshToken({
     sub: user.id,
     tokenVersion: user.refreshTokenVersion,
+    userAgentHash: hashUserAgent(req),
   });
 
   res
@@ -180,6 +220,20 @@ export async function refresh(req: Request, res: Response): Promise<void> {
     if (!user || user.refreshTokenVersion !== payload.tokenVersion) {
       // Token version mismatch = token was revoked (e.g. password change, logout-all)
       res.status(401).json({ message: 'Refresh token is no longer valid' });
+      return;
+    }
+
+    // Session binding check: this refresh token must be presented by the same
+    // browser/device that originally logged in. A mismatch here is treated the same as
+    // an invalid token and logged as a distinct audit event - a stolen-and-replayed
+    // refresh token is exactly the scenario this check exists to catch.
+    if (payload.userAgentHash !== hashUserAgent(req)) {
+      await logAuditEvent({
+        req,
+        action: 'user.session.binding_mismatch',
+        userId: user.id,
+      });
+      res.status(401).json({ message: 'Session could not be verified. Please sign in again.' });
       return;
     }
 
@@ -316,7 +370,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   const user = await User.findOne({
     passwordResetTokenHash: tokenHash,
     passwordResetExpires: { $gt: new Date() },
-  }).select('+passwordResetTokenHash +passwordResetExpires');
+  }).select('+passwordResetTokenHash +passwordResetExpires +passwordHash +passwordHistory');
 
   if (!user) {
     // Same message whether the token is invalid, expired, or already used (tokens are
@@ -324,6 +378,18 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     res.status(400).json({ message: 'This reset link is invalid or has expired.' });
     return;
   }
+
+  if (await isPasswordReused(newPassword, [user.passwordHash, ...user.passwordHistory])) {
+    res.status(400).json({
+      message: `You've used this password recently. Please choose a different one.`,
+    });
+    return;
+  }
+
+  // Push the outgoing password into history BEFORE overwriting it, capped at the
+  // configured limit (oldest dropped first) - this is what makes reuse prevention
+  // actually work across multiple resets, not just against the single most recent one.
+  user.passwordHistory = [user.passwordHash, ...user.passwordHistory].slice(0, env.passwordHistoryLimit);
 
   user.passwordHash = await hashPassword(newPassword);
   user.passwordChangedAt = new Date();
@@ -340,4 +406,51 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   await logAuditEvent({ req, action: 'user.password.reset_completed', userId: user.id });
 
   res.status(200).json({ message: 'Password reset successfully. Please sign in with your new password.' });
+}
+
+/**
+ * PATCH /api/auth/change-password
+ *
+ * For a logged-in user proactively changing their password (distinct from the
+ * forgot-password flow, which is for someone who can't log in at all). Requires the
+ * CURRENT password as proof of intent - a stolen access token alone (e.g. via an XSS
+ * bug, despite httpOnly cookies making that hard) shouldn't be enough to silently
+ * take over the account by changing its password.
+ */
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  const userId = req.user?.sub;
+  const { currentPassword, newPassword } = req.body as ChangePasswordInput;
+
+  const user = await User.findById(userId).select('+passwordHash +passwordHistory');
+  if (!user) {
+    res.status(404).json({ message: 'User not found' });
+    return;
+  }
+
+  const currentValid = await verifyPassword(user.passwordHash, currentPassword);
+  if (!currentValid) {
+    res.status(401).json({ message: 'Current password is incorrect' });
+    return;
+  }
+
+  if (await isPasswordReused(newPassword, [user.passwordHash, ...user.passwordHistory])) {
+    res.status(400).json({
+      message: `You've used this password recently. Please choose a different one.`,
+    });
+    return;
+  }
+
+  user.passwordHistory = [user.passwordHash, ...user.passwordHistory].slice(0, env.passwordHistoryLimit);
+  user.passwordHash = await hashPassword(newPassword);
+  user.passwordChangedAt = new Date();
+
+  // Bump token version to sign out other sessions too - if the change was prompted by
+  // suspicion of compromise, this closes out whatever session an attacker had.
+  user.refreshTokenVersion += 1;
+
+  await user.save();
+
+  await logAuditEvent({ req, action: 'user.password.reset_completed', userId: user.id });
+
+  res.status(200).json({ message: 'Password changed successfully' });
 }

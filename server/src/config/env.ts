@@ -38,6 +38,11 @@ export const env = {
   // Password reset tokens are single-use and short-lived by design
   passwordResetTokenExpiresMinutes: Number(process.env.PASSWORD_RESET_TOKEN_EXPIRES_MINUTES ?? 30),
 
+  // Password policy: expiry forces periodic rotation; history prevents cycling back to
+  // a recently-used (and possibly already-compromised) password.
+  passwordExpiryDays: Number(process.env.PASSWORD_EXPIRY_DAYS ?? 90),
+  passwordHistoryLimit: Number(process.env.PASSWORD_HISTORY_LIMIT ?? 5),
+
   // IP allow/block-listing - comma-separated IPs, empty = feature disabled (fail open,
   // not fail closed, so a misconfiguration doesn't accidentally lock out the whole app)
   ipBlocklist: (process.env.IP_BLOCKLIST ?? '')
@@ -48,6 +53,17 @@ export const env = {
     .split(',')
     .map((ip) => ip.trim())
     .filter(Boolean),
+
+  // eSewa (Nepali payment gateway) - TEST/SANDBOX environment only. These are eSewa's
+  // own publicly-documented test credentials (not a secret specific to this project),
+  // provided so any developer can integrate against their sandbox without a live
+  // merchant account. Real production credentials would come from an actual eSewa
+  // merchant agreement and must never be committed to source control.
+  esewaMerchantCode: process.env.ESEWA_MERCHANT_CODE ?? 'EPAYTEST',
+  esewaSecretKey: process.env.ESEWA_SECRET_KEY ?? '8gBm/:&EnhH.1/q',
+  esewaFormUrl: process.env.ESEWA_FORM_URL ?? 'https://rc-epay.esewa.com.np/api/epay/main/v2/form',
+  esewaStatusCheckUrl:
+    process.env.ESEWA_STATUS_CHECK_URL ?? 'https://rc.esewa.com.np/api/epay/transaction/status/',
 };
 
 // Fail fast: a 32-byte key must be exactly 64 hex chars for AES-256-GCM

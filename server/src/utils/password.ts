@@ -24,3 +24,19 @@ export async function verifyPassword(hash: string, plain: string): Promise<boole
     return false;
   }
 }
+
+/**
+ * Checks a candidate new password against the user's recent password history.
+ * Returns true if the new password matches any of the last N hashes (i.e. reuse is
+ * blocked). This has to check every hash individually (argon2 hashes can't be compared
+ * directly, only verified against a plaintext) - acceptable cost since history is
+ * capped at a small number (env.passwordHistoryLimit).
+ */
+export async function isPasswordReused(newPlainPassword: string, history: string[]): Promise<boolean> {
+  for (const oldHash of history) {
+    if (await verifyPassword(oldHash, newPlainPassword)) {
+      return true;
+    }
+  }
+  return false;
+}

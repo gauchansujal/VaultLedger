@@ -11,6 +11,7 @@ export interface AccessTokenPayload {
 export interface RefreshTokenPayload {
   sub: string;
   tokenVersion: number; // must match user.refreshTokenVersion or the token is considered revoked
+  userAgentHash: string; // see utils/session.ts - binds this refresh token to the device that logged in
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {

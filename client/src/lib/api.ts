@@ -9,9 +9,11 @@ export function assetUrl(path?: string): string | undefined {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  data: unknown;
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -31,7 +33,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const data = isJson ? await res.json() : null;
 
   if (!res.ok) {
-    throw new ApiError(data?.message ?? 'Request failed', res.status);
+    throw new ApiError(data?.message ?? 'Request failed', res.status, data);
   }
 
   return data as T;

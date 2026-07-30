@@ -33,6 +33,14 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
+        const data = err.data as { passwordExpired?: boolean } | undefined;
+        if (data?.passwordExpired) {
+          // Password expired (see auth.controller.ts login()) - the account owner
+          // can't sign in until they reset it, so route them straight into that flow
+          // rather than leaving them stuck re-typing a password that will never work.
+          router.push('/forgot-password?expired=1');
+          return;
+        }
         setError(err.message);
       } else {
         setError('Something went wrong. Please try again.');

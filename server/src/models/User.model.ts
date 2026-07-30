@@ -12,6 +12,7 @@ export interface IUser extends Document {
   failedLoginAttempts: number;
   lockUntil?: Date;
   passwordChangedAt?: Date;
+  passwordHistory: string[]; // hashes of previous passwords, capped at env.passwordHistoryLimit
   passwordResetTokenHash?: string;
   passwordResetExpires?: Date;
   refreshTokenVersion: number; // bumped to invalidate all existing refresh tokens (e.g. on password change/logout-all)
@@ -61,6 +62,12 @@ const UserSchema = new Schema<IUser>(
     },
     passwordChangedAt: {
       type: Date,
+    },
+    // Never returned by default - contains password hashes, just like passwordHash itself.
+    passwordHistory: {
+      type: [String],
+      default: [],
+      select: false,
     },
     // Only the SHA-256 hash of the reset token is ever stored - never the raw token.
     // This mirrors how passwords are never stored raw; if the database leaked, an

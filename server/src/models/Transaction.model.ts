@@ -1,6 +1,8 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export type TransactionType = 'income' | 'expense';
+export type PaymentMethod = 'manual' | 'esewa';
+export type PaymentStatus = 'not_applicable' | 'pending' | 'completed' | 'failed';
 
 export const TRANSACTION_CATEGORIES = [
   'housing',
@@ -23,6 +25,13 @@ export interface ITransaction extends Document {
   currency: string;
   note?: string;
   occurredAt: Date;
+  // Third-party payment gateway fields (eSewa) - see controllers/payment.controller.ts.
+  // paymentStatus stays 'not_applicable' for manually-logged transactions (the vast
+  // majority) and only becomes meaningful for ones initiated through eSewa.
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  esewaTransactionUuid?: string; // our reference sent to eSewa, used to verify their callback
+  esewaRefId?: string; // eSewa's own reference ID, returned once payment completes
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,6 +76,24 @@ const TransactionSchema = new Schema<ITransaction>(
       type: Date,
       required: true,
       default: Date.now,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['manual', 'esewa'],
+      default: 'manual',
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['not_applicable', 'pending', 'completed', 'failed'],
+      default: 'not_applicable',
+    },
+    esewaTransactionUuid: {
+      type: String,
+      index: true,
+      sparse: true, // most transactions never have this - avoid indexing a mostly-null field densely
+    },
+    esewaRefId: {
+      type: String,
     },
   },
   {

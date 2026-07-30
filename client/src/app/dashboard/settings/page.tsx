@@ -7,6 +7,13 @@ import type { UserProfile } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB - must match server limit
+const passwordRules = [
+  { label: 'At least 12 characters', test: (p: string) => p.length >= 12 },
+  { label: 'One uppercase letter', test: (p: string) => /[A-Z]/.test(p) },
+  { label: 'One lowercase letter', test: (p: string) => /[a-z]/.test(p) },
+  { label: 'One number', test: (p: string) => /[0-9]/.test(p) },
+  { label: 'One special character', test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -21,6 +28,19 @@ export default function SettingsPage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function load() {
@@ -91,6 +111,80 @@ export default function SettingsPage() {
       setMfaError(err instanceof ApiError ? err.message : 'Invalid code');
     } finally {
       setMfaBusy(false);
+    }
+  }
+
+  async function handleChangePassword(e: FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordBusy(true);
+    try {
+      await api.patch('/api/auth/change-password', { currentPassword, newPassword });
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (err) {
+      setPasswordError(err instanceof ApiError ? err.message : 'Failed to change password');
+    } finally {
+      setPasswordBusy(false);
+    }
+  }
+
+  async function handleExport() {
+    setExportError(null);
+    setExportBusy(true);
+    try {
+      const data = await api.get('/api/users/me/export');
+      // Trigger a browser download of the JSON - this is the actual "portability" part
+      // of data export: the user gets a real file they own, not just a screen they can
+      // read but not take with them.
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vaultledger-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err instanceof ApiError ? err.message : 'Export failed');
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportError(null);
+    setImportSuccess(null);
+    setImportBusy(true);
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      // Accept either a raw array, or the same shape our own export produces
+      // ({ transactions: [...] }) - makes re-importing your own export file work
+      // without the user needing to manually reshape it first.
+      const transactions = Array.isArray(parsed) ? parsed : parsed.transactions;
+
+      if (!Array.isArray(transactions)) {
+        throw new Error('File must contain a "transactions" array');
+      }
+
+      const res = await api.post<{ importedCount: number }>('/api/users/me/import', { transactions });
+      setImportSuccess(`Imported ${res.importedCount} transaction(s) successfully.`);
+    } catch (err) {
+      setImportError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Import failed - check the file format'
+      );
+    } finally {
+      setImportBusy(false);
+      if (importFileRef.current) importFileRef.current.value = '';
     }
   }
 
@@ -198,6 +292,90 @@ export default function SettingsPage() {
             </button>
           </>
         )}
+      </section>
+
+      <section className="vault-card p-5 mb-6">
+        <h2 className="font-display font-semibold text-vault-text mb-4">Change password</h2>
+
+        {passwordSuccess ? (
+          <p className="text-vault-teal text-sm">
+            ✓ Password changed. You&apos;ve been signed out of all other devices.
+          </p>
+        ) : (
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div>
+              <label className="vault-label">Current password</label>
+              <input
+                type="password"
+                required
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="vault-input"
+              />
+            </div>
+            <div>
+              <label className="vault-label">New password</label>
+              <input
+                type="password"
+                required
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="vault-input"
+              />
+              <ul className="mt-2.5 space-y-1">
+                {passwordRules.map((rule) => {
+                  const met = rule.test(newPassword);
+                  return (
+                    <li
+                      key={rule.label}
+                      className={`text-xs flex items-center gap-1.5 ${
+                        met ? 'text-vault-teal' : 'text-vault-textMuted'
+                      }`}
+                    >
+                      <span aria-hidden="true">{met ? '✓' : '·'}</span>
+                      {rule.label}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            {passwordError && <p className="text-vault-danger text-sm">{passwordError}</p>}
+            <button type="submit" disabled={passwordBusy} className="vault-btn-secondary">
+              {passwordBusy ? 'Changing…' : 'Change password'}
+            </button>
+          </form>
+        )}
+      </section>
+
+      <section className="vault-card p-5 mb-6">
+        <h2 className="font-display font-semibold text-vault-text mb-2">Your data</h2>
+        <p className="text-vault-textMuted text-sm mb-4">
+          Download a copy of your data, or restore transactions from a previous export.
+        </p>
+
+        <div className="flex flex-wrap gap-3 items-center">
+          <button onClick={handleExport} disabled={exportBusy} className="vault-btn-secondary">
+            {exportBusy ? 'Preparing…' : 'Export my data (JSON)'}
+          </button>
+
+          <input
+            ref={importFileRef}
+            type="file"
+            accept="application/json"
+            onChange={handleImportFile}
+            className="hidden"
+            id="import-input"
+          />
+          <label htmlFor="import-input" className="vault-btn-secondary cursor-pointer inline-block">
+            {importBusy ? 'Importing…' : 'Import transactions'}
+          </label>
+        </div>
+
+        {exportError && <p className="text-vault-danger text-xs mt-3">{exportError}</p>}
+        {importError && <p className="text-vault-danger text-xs mt-3">{importError}</p>}
+        {importSuccess && <p className="text-vault-teal text-xs mt-3">✓ {importSuccess}</p>}
       </section>
 
       {profile?.role === 'system-admin' && (

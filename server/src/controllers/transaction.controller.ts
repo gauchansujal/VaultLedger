@@ -18,6 +18,8 @@ function serializeTransaction(tx: HydratedDocument<ITransaction>) {
     occurredAt: tx.occurredAt,
     createdAt: tx.createdAt,
     updatedAt: tx.updatedAt,
+    paymentMethod: tx.paymentMethod,
+    paymentStatus: tx.paymentStatus,
   };
 }
 

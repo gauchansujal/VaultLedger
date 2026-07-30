@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { api, ApiError } from '@/lib/api';
 import { VaultMark } from '@/components/VaultMark';
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
+  const searchParams = useSearchParams();
+  const expired = searchParams.get('expired') === '1';
+
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +43,14 @@ export default function ForgotPasswordPage() {
             Enter your account email and we&apos;ll send you a reset link.
           </p>
         </div>
+
+        {expired && !submitted && (
+          <div className="bg-vault-gold/10 border border-vault-gold/30 rounded-vault px-4 py-3 mb-4">
+            <p className="text-vault-gold text-xs">
+              Your password has expired and must be reset before you can sign in again.
+            </p>
+          </div>
+        )}
 
         {submitted ? (
           <div className="vault-card p-6 text-center">
@@ -85,5 +97,13 @@ export default function ForgotPasswordPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ForgotPasswordForm />
+    </Suspense>
   );
 }

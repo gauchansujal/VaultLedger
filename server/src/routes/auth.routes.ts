@@ -8,6 +8,7 @@ import {
   verifyAndEnableMfa,
   forgotPassword,
   resetPassword,
+  changePassword,
 } from '../controllers/auth.controller';
 import { validateBody } from '../middleware/validate.middleware';
 import {
@@ -16,6 +17,7 @@ import {
   mfaVerifySchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  changePasswordSchema,
 } from '../utils/validation/auth.schema';
 import { authRateLimiter } from '../middleware/rateLimit.middleware';
 import { requireAuth } from '../middleware/auth.middleware';
@@ -35,5 +37,6 @@ router.post('/mfa/verify', requireAuth, validateBody(mfaVerifySchema), verifyAnd
 // (mass-emailing arbitrary addresses, or brute-forcing reset tokens on the confirm step)
 router.post('/forgot-password', authRateLimiter, validateBody(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', authRateLimiter, validateBody(resetPasswordSchema), resetPassword);
+router.patch('/change-password', requireAuth, validateBody(changePasswordSchema), changePassword);
 
 export default router;

@@ -13,6 +13,7 @@ import auditLogRouter from './routes/auditLog.routes';
 import userRouter from './routes/user.routes';
 import transactionRouter from './routes/transaction.routes';
 import adminRouter from './routes/admin.routes';
+import paymentRouter from './routes/payment.routes';
 import { ipBlocklistGuard } from './middleware/ipFilter.middleware';
 
 export function createApp(): Application {
@@ -89,6 +90,7 @@ export function createApp(): Application {
   app.use('/api/users', userRouter);
   app.use('/api/transactions', transactionRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/payments', paymentRouter);
 
   // --- 404 handler ---
   app.use((_req: Request, res: Response) => {

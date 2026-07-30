@@ -21,6 +21,8 @@ export interface Transaction {
   occurredAt: string;
   createdAt: string;
   updatedAt: string;
+  paymentMethod?: 'manual' | 'esewa';
+  paymentStatus?: 'not_applicable' | 'pending' | 'completed' | 'failed';
 }
 
 export interface TransactionListResponse {

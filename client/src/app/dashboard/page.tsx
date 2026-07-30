@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [category, setCategory] = useState<TransactionCategory>('food');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'manual' | 'esewa'>('manual');
   const [submitting, setSubmitting] = useState(false);
 
   async function loadTransactions() {
@@ -58,6 +59,35 @@ export default function DashboardPage() {
     setError(null);
 
     try {
+      if (paymentMethod === 'esewa') {
+        // eSewa v2 requires an actual HTML form POST to their payment page - not a
+        // fetch/redirect. We ask our backend to prepare the signed form fields, then
+        // build and auto-submit a real <form> to navigate the browser there.
+        const res = await api.post<{
+          formUrl: string;
+          formParams: Record<string, string>;
+        }>('/api/payments/esewa/initiate', {
+          type,
+          category,
+          amount: Number(amount),
+          note: note || undefined,
+        });
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = res.formUrl;
+        Object.entries(res.formParams).forEach(([key, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = value;
+          form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+        return; // browser is navigating away - nothing more to do here
+      }
+
       await api.post('/api/transactions', {
         type,
         category,
@@ -162,8 +192,46 @@ export default function DashboardPage() {
             />
           </div>
 
+          {type === 'expense' && (
+            <div>
+              <label className="vault-label">Payment method</label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 text-sm text-vault-text cursor-pointer">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    checked={paymentMethod === 'manual'}
+                    onChange={() => setPaymentMethod('manual')}
+                  />
+                  Log manually
+                </label>
+                <label className="flex items-center gap-2 text-sm text-vault-text cursor-pointer">
+                  <input
+                    type="radio"
+                    name="paymentMethod"
+                    checked={paymentMethod === 'esewa'}
+                    onChange={() => setPaymentMethod('esewa')}
+                  />
+                  Pay with eSewa (test)
+                </label>
+              </div>
+              {paymentMethod === 'esewa' && (
+                <p className="text-vault-textMuted text-xs mt-2">
+                  You&apos;ll be redirected to eSewa&apos;s sandbox to complete a test payment,
+                  then brought back here automatically.
+                </p>
+              )}
+            </div>
+          )}
+
           <button type="submit" disabled={submitting} className="vault-btn-primary w-full">
-            {submitting ? 'Saving…' : 'Save transaction'}
+            {submitting
+              ? paymentMethod === 'esewa'
+                ? 'Redirecting to eSewa…'
+                : 'Saving…'
+              : paymentMethod === 'esewa'
+                ? 'Continue to eSewa'
+                : 'Save transaction'}
           </button>
         </form>
       )}
@@ -190,8 +258,21 @@ export default function DashboardPage() {
                 <p className="text-vault-text text-sm font-medium">
                   {t.note || t.category[0].toUpperCase() + t.category.slice(1)}
                 </p>
-                <p className="text-vault-textMuted text-xs mt-0.5 font-mono">
+                <p className="text-vault-textMuted text-xs mt-0.5 font-mono flex items-center gap-2">
                   {formatDate(t.occurredAt)} · {t.category}
+                  {t.paymentMethod === 'esewa' && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-sans font-medium ${
+                        t.paymentStatus === 'completed'
+                          ? 'bg-vault-teal/10 text-vault-teal'
+                          : t.paymentStatus === 'failed'
+                            ? 'bg-vault-danger/10 text-vault-danger'
+                            : 'bg-vault-gold/10 text-vault-gold'
+                      }`}
+                    >
+                      eSewa · {t.paymentStatus}
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-4">
