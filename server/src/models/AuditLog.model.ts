@@ -29,11 +29,11 @@ export type AuditAction =
   | 'admin.transaction.delete';
 
 export interface IAuditLog extends Document {
-  userId?: mongoose.Types.ObjectId; // who performed the action (undefined for anonymous/failed pre-auth events)
+  userId?: mongoose.Types.ObjectId; 
   action: AuditAction;
   ipAddress: string;
   userAgent?: string;
-  metadata?: Record<string, unknown>; // action-specific context - NEVER put passwords/tokens/secrets here
+  metadata?: Record<string, unknown>; 
   createdAt: Date;
 }
 
@@ -62,8 +62,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
   },
   {
     timestamps: { createdAt: true, updatedAt: false },
-    // Audit logs are append-only by design - no update timestamps, and we never
-    // expose an update/delete route for this collection (see audit.routes.ts).
+   
   }
 );
 
