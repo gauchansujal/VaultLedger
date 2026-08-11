@@ -81,8 +81,8 @@ export async function getTransaction(req: Request, res: Response): Promise<void>
   const transaction = await Transaction.findOne({ _id: id, userId }).select('+amountEncrypted');
 
   if (!transaction) {
-    // Same 404 whether the ID doesn't exist OR belongs to another user - do not leak
-    // which case it is, that would itself be an information disclosure.
+   
+  
     res.status(404).json({ message: 'Transaction not found' });
     return;
   }
@@ -92,9 +92,7 @@ export async function getTransaction(req: Request, res: Response): Promise<void>
   res.status(200).json(serializeTransaction(transaction));
 }
 
-/**
- * PATCH /api/transactions/:id
- */
+
 export async function updateTransaction(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const { id } = req.params;
@@ -125,9 +123,7 @@ export async function updateTransaction(req: Request, res: Response): Promise<vo
   res.status(200).json(serializeTransaction(transaction));
 }
 
-/**
- * DELETE /api/transactions/:id
- */
+
 export async function deleteTransaction(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const { id } = req.params;
