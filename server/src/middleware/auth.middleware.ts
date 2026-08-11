@@ -1,10 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt';
 
-/**
- * Requires a valid access token (from httpOnly cookie). Attaches decoded payload to req.user.
- * This is the base authentication gate - use requireRole() on top of this for authorization.
- */
+
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const token = req.cookies?.accessToken;
 
@@ -22,11 +19,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 }
 
-/**
- * Role-based access control gate. Must run after requireAuth.
- * Enforces least-privilege: routes explicitly opt in to which roles may access them,
- * rather than defaulting open.
- */
+
 export function requireRole(...allowedRoles: Array<'user' | 'household-admin' | 'system-admin'>) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
