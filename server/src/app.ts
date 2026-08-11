@@ -53,10 +53,10 @@ export function createApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
   app.use(cookieParser());
 
-  // --- Sanitization: strips $ and . operators from req.body/query/params to block NoSQL injection ---
+  
   app.use(mongoSanitize());
 
-  // --- HTTP Parameter Pollution protection ---
+
   app.use(hpp());
 
   // --- Logging (dev only; production logging goes through the audit log service, not stdout) ---
