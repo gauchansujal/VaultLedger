@@ -80,13 +80,7 @@ export async function importTransactions(req: Request, res: Response): Promise<v
   res.status(201).json({ message: `Imported ${created.length} transaction(s)`, count: created.length });
 }
 
-/**
- * GET /api/users/me
- *
- * IDOR protection: the user ID comes exclusively from the verified JWT (req.user.sub),
- * never from a URL param or query string. There is deliberately no "GET /users/:id"
- * route for regular users - only "/me" - so there is no ID for an attacker to tamper with.
- */
+
 export async function getMe(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
 
@@ -106,14 +100,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   });
 }
 
-/**
- * PATCH /api/users/me
- *
- * Mass-assignment protection: req.body has already been through updateProfileSchema
- * (via validateBody middleware), which strips any field not explicitly allow-listed.
- * Combined with scoping the update to req.user.sub, this also blocks privilege
- * escalation - there is no code path where a user-submitted request can change `role`.
- */
+
 export async function updateMe(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const updates = req.body as UpdateProfileInput;
