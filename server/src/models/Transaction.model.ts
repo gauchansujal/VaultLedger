@@ -18,20 +18,18 @@ export const TRANSACTION_CATEGORIES = [
 export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number];
 
 export interface ITransaction extends Document {
-  userId: mongoose.Types.ObjectId; // ownership - every query MUST filter by this, enforced in controller
+  userId: mongoose.Types.ObjectId; 
   type: TransactionType;
   category: TransactionCategory;
-  amountEncrypted: string; // AES-256-GCM encrypted string - see utils/encryption.ts
+  amountEncrypted: string; 
   currency: string;
   note?: string;
   occurredAt: Date;
-  // Third-party payment gateway fields (eSewa) - see controllers/payment.controller.ts.
-  // paymentStatus stays 'not_applicable' for manually-logged transactions (the vast
-  // majority) and only becomes meaningful for ones initiated through eSewa.
+  
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
-  esewaTransactionUuid?: string; // our reference sent to eSewa, used to verify their callback
-  esewaRefId?: string; // eSewa's own reference ID, returned once payment completes
+  esewaTransactionUuid?: string; 
+  esewaRefId?: string; 
   createdAt: Date;
   updatedAt: Date;
 }
