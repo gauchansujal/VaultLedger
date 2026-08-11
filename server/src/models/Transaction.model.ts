@@ -88,7 +88,7 @@ const TransactionSchema = new Schema<ITransaction>(
     esewaTransactionUuid: {
       type: String,
       index: true,
-      sparse: true, // most transactions never have this - avoid indexing a mostly-null field densely
+      sparse: true, 
     },
     esewaRefId: {
       type: String,
@@ -99,10 +99,7 @@ const TransactionSchema = new Schema<ITransaction>(
   }
 );
 
-// Compound index: fast lookup of "all transactions for user X, most recent first" -
-// the primary query pattern, and also enforces that queries scoped by userId are efficient
-// (important once this collection grows - avoids full collection scans that could be abused
-// for a denial-of-service via expensive unfiltered queries).
+
 TransactionSchema.index({ userId: 1, occurredAt: -1 });
 
 export const Transaction: Model<ITransaction> = mongoose.model<ITransaction>(
