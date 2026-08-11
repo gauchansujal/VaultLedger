@@ -92,10 +92,7 @@ UserSchema.virtual('isLocked').get(function (this: IUser) {
   return !!(this.lockUntil && this.lockUntil.getTime() > Date.now());
 });
 
-// Prevent mass assignment: only these fields can ever be set via user-controlled input.
-// Any controller that builds a User must pull fields explicitly - Mongoose alone doesn't
-// protect against this, so this is enforced at the controller/validation layer, documented here
-// as the canonical allow-list for the model.
+
 export const USER_MUTABLE_FIELDS_BY_SELF = ['email'] as const;
 export const USER_MUTABLE_FIELDS_BY_ADMIN = ['role'] as const;
 
