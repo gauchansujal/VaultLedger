@@ -10,21 +10,10 @@ import { logAuditEvent } from '../utils/auditLogger';
 import { UpdateProfileInput, ImportTransactionsInput } from '../utils/validation/user.schema';
 
 const AVATAR_DIR = path.join(process.cwd(), 'uploads', 'avatars');
-const AVATAR_DIMENSION = 256; // square, px - fixed output size regardless of input
-const MAX_IMPORT_ROWS = 500; // bounds a single import request - prevents a huge payload
+const AVATAR_DIMENSION = 256; 
+const MAX_IMPORT_ROWS = 500;
 
-/**
- * GET /api/users/me/export
- *
- * Data export aligned with privacy principles (data portability - the same idea behind
- * GDPR Article 20): a user can get a complete, structured copy of their own data at
- * any time, in a format they could re-import elsewhere or into VaultLedger itself.
- *
- * Deliberately excludes: passwordHash, passwordHistory, mfaSecret, reset tokens - an
- * export is meant to hand the USER their data back, not hand out credentials-equivalent
- * material even to themselves in a downloadable file that might end up somewhere less
- * secure than the database (email, a shared drive, etc).
- */
+
 export async function exportMyData(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
 
@@ -60,17 +49,6 @@ export async function exportMyData(req: Request, res: Response): Promise<void> {
   res.status(200).json(exportPayload);
 }
 
-/**
- * POST /api/users/me/import
- *
- * Counterpart to export - lets a user bring transaction data back in (e.g. restoring
- * from a prior export, or migrating from a spreadsheet they've reformatted to match).
- *
- * Every imported row goes through the SAME validation schema as manually creating a
- * transaction through the normal API (see transaction.schema.ts) - there is no
- * "trusted because it's a bulk import" shortcut that skips amount limits, category
- * enums, or note length caps. Rows are scoped to req.user.sub, same as everywhere else.
- */
 export async function importTransactions(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const { transactions } = req.body as ImportTransactionsInput;
