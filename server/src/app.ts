@@ -79,7 +79,6 @@ export function createApp(): Application {
     })
   );
 
-  // --- Routes ---
   app.use('/api/auth', authRouter);
   app.use('/api/audit-log', auditLogRouter);
   app.use('/api/users', userRouter);
@@ -87,13 +86,11 @@ export function createApp(): Application {
   app.use('/api/admin', adminRouter);
   app.use('/api/payments', paymentRouter);
 
-  // --- 404 handler ---
   app.use((_req: Request, res: Response) => {
     res.status(404).json({ message: 'Not found' });
   });
 
-  // --- Upload-specific error handling (file too large, wrong type) - must return 400,
-  // not fall through to the generic 500 handler below ---
+  
   app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
     if (err instanceof multer.MulterError) {
       const message =
@@ -108,7 +105,7 @@ export function createApp(): Application {
     next(err);
   });
 
-  // --- Centralized error handler (never leak stack traces in production) ---
+  
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err);
     const isDev = env.nodeEnv !== 'production';
