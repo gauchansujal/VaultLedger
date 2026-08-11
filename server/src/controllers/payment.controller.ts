@@ -6,20 +6,12 @@ import { buildEsewaFormParams, verifyEsewaPayment } from '../utils/esewa';
 import { logAuditEvent } from '../utils/auditLogger';
 import { CreateTransactionInput } from '../utils/validation/transaction.schema';
 
-/**
- * POST /api/payments/esewa/initiate
- *
- * Creates the transaction in a 'pending' state FIRST, before the user ever reaches
- * eSewa. This means even if the user closes the tab mid-payment or eSewa's redirect
- * fails, there's still an honest record that a payment was attempted - nothing about
- * this flow depends on the browser successfully returning to us.
- */
+
 export async function initiateEsewaPayment(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const input = req.body as CreateTransactionInput;
 
-  // Our own unique reference for this attempt - sent to eSewa and used later to look
-  // the transaction back up when eSewa calls back, and to independently verify status.
+ 
   const transactionUuid = crypto.randomUUID();
 
   const transaction = await Transaction.create({
@@ -51,14 +43,7 @@ export async function initiateEsewaPayment(req: Request, res: Response): Promise
   });
 }
 
-/**
- * POST /api/payments/esewa/verify
- *
- * Called by the frontend after the browser is redirected back from eSewa (success or
- * failure page). This does NOT trust that redirect on its own - see verifyEsewaPayment's
- * comment for why. Only a genuine 'COMPLETE' status from eSewa's own API marks the
- * transaction as paid.
- */
+
 export async function verifyEsewaTransaction(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const { transactionUuid } = req.body as { transactionUuid: string };
@@ -74,8 +59,8 @@ export async function verifyEsewaTransaction(req: Request, res: Response): Promi
   }
 
   if (transaction.paymentStatus === 'completed') {
-    // Already verified previously (e.g. user refreshed the success page) - idempotent,
-    // don't re-verify or double-log.
+    
+ 
     res.status(200).json({ paymentStatus: 'completed' });
     return;
   }

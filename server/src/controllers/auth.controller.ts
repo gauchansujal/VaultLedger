@@ -19,10 +19,7 @@ import {
 } from '../utils/validation/auth.schema';
 
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-
-// Cookie options shared by access/refresh cookies - httpOnly blocks JS/XSS access,
-// sameSite=strict blocks CSRF from cross-site requests, secure requires HTTPS in production.
+const LOCK_DURATION_MS = 15 * 60 * 1000; 
 function cookieOptions(maxAgeMs: number) {
   return {
     httpOnly: true,
@@ -37,8 +34,7 @@ export async function register(req: Request, res: Response): Promise<void> {
 
   const existing = await User.findOne({ email });
   if (existing) {
-    // Deliberately vague message - do not reveal whether the email exists.
-    // Prevents user enumeration via the registration endpoint.
+    
     res.status(400).json({ message: 'Unable to register with the provided details' });
     return;
   }
@@ -49,7 +45,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     email,
     passwordHash,
     passwordChangedAt: new Date(),
-    role: 'user', // role is NEVER taken from client input - always defaulted server-side
+    role: 'user', 
   });
 
   await logAuditEvent({ req, action: 'user.register', userId: user.id });
@@ -65,8 +61,6 @@ export async function login(req: Request, res: Response): Promise<void> {
 
   const user = await User.findOne({ email }).select('+passwordHash +mfaSecret');
 
-  // Same generic error whether the user doesn't exist OR the password is wrong -
-  // prevents user enumeration via response differences.
   const genericFail = () => res.status(401).json({ message: 'Invalid email or password' });
 
   if (!user) {
@@ -74,7 +68,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  // Account lockout check
+
   if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
     const minutesLeft = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
     res.status(423).json({
@@ -94,9 +88,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       await user.save();
       await logAuditEvent({ req, action: 'user.login.locked', userId: user.id });
 
-      // Real-time security alert - the account owner finds out immediately, not just
-      // via the audit log they'd have to think to go check. If this wasn't the real
-      // user attempting to log in, they now know their account is under attack.
+     
       await sendMail(
         user.email,
         'Security alert: your VaultLedger account was locked',
@@ -117,17 +109,12 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  // Password correct - reset failed attempts
   if (user.failedLoginAttempts > 0 || user.lockUntil) {
     user.failedLoginAttempts = 0;
     user.lockUntil = undefined;
     await user.save();
   }
 
-  // Password expiry check - deliberately AFTER verifying the password is correct, so
-  // an attacker probing with wrong passwords can't use "expired vs invalid" as an
-  // oracle to learn anything about the account. Only a genuinely correct password
-  // reveals whether it's also expired.
   if (user.passwordChangedAt) {
     const ageMs = Date.now() - user.passwordChangedAt.getTime();
     const ageDays = ageMs / (1000 * 60 * 60 * 24);
