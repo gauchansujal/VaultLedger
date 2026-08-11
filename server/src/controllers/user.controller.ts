@@ -132,24 +132,7 @@ export async function updateMe(req: Request, res: Response): Promise<void> {
   });
 }
 
-/**
- * PATCH /api/users/me/avatar
- *
- * Security notes:
- * - multer's fileFilter already rejected obviously-wrong Content-Types before this runs,
- *   but that header is client-supplied and not trustworthy on its own.
- * - sharp() here is the real gate: it parses the actual file bytes. If the upload isn't
- *   a genuine, decodable image (e.g. a renamed script, a corrupted/malicious file, an
- *   image-polyglot payload), decoding throws and we reject with 400 - nothing invalid
- *   ever reaches disk.
- * - Re-encoding to a fixed-size JPEG strips ALL original metadata (EXIF/GPS/ICC profiles,
- *   any embedded payloads riding along in those chunks) as a side effect of the re-encode -
- *   we don't need to hunt for and strip specific metadata fields individually.
- * - The stored filename is a random UUID, not derived from the original filename or any
- *   client input - eliminates path traversal and filename-injection risk entirely.
- * - The old avatar file (if any) is deleted after the new one is confirmed written, so
- *   orphaned files don't accumulate on disk.
- */
+
 export async function uploadAvatar(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const file = req.file;
@@ -168,13 +151,12 @@ export async function uploadAvatar(req: Request, res: Response): Promise<void> {
   let processedBuffer: Buffer;
   try {
     processedBuffer = await sharp(file.buffer)
-      .rotate() // auto-orient based on EXIF *before* that EXIF data is stripped below
+      .rotate() 
       .resize(AVATAR_DIMENSION, AVATAR_DIMENSION, { fit: 'cover' })
-      .jpeg({ quality: 85 }) // re-encoding to a fresh JPEG strips all original metadata
+      .jpeg({ quality: 85 }) 
       .toBuffer();
   } catch {
-    // sharp couldn't decode this as a real image - reject regardless of what the
-    // client claimed its Content-Type was.
+   
     res.status(400).json({ message: 'The uploaded file is not a valid image' });
     return;
   }
@@ -190,13 +172,12 @@ export async function uploadAvatar(req: Request, res: Response): Promise<void> {
   user.avatarUrl = `/uploads/avatars/${filename}`;
   await user.save();
 
-  // Clean up the old file now that the new one is safely written and saved.
+  
   if (previousAvatarUrl) {
     const previousFilename = path.basename(previousAvatarUrl);
     const previousPath = path.join(AVATAR_DIR, previousFilename);
     await fs.unlink(previousPath).catch(() => {
-      // Non-fatal - an orphaned old avatar file is a minor cleanup issue, not worth
-      // failing the request over.
+     
     });
   }
 
