@@ -15,10 +15,6 @@ import { adminIpAllowlistGuard } from '../middleware/ipFilter.middleware';
 
 const router = Router();
 
-// Every route here requires BOTH a valid session AND the system-admin role -
-// least-privilege enforced centrally, not per-controller. The IP allow-list runs FIRST,
-// before authentication even happens - if ADMIN_IP_ALLOWLIST is configured, requests from
-// untrusted networks are rejected before spending any effort verifying credentials at all.
 router.use(adminIpAllowlistGuard, requireAuth, requireRole('system-admin'));
 
 router.get('/users', listUsers);
@@ -30,4 +26,4 @@ router.patch('/users/:userId/role', validateBody(changeRoleSchema), changeUserRo
 router.get('/transactions', listAllTransactions);
 router.delete('/transactions/:id', deleteAnyTransaction);
 
-export default router;
+export default router;  transaction 
