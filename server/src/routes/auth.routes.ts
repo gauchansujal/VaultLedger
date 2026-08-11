@@ -24,17 +24,16 @@ import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.post('/register', authRateLimiter, validateBody(registerSchema), register);
+router.post('/register', authRateLimiter, validateBody(registerSchema), register); regiter 
 router.post('/login', authRateLimiter, validateBody(loginSchema), login);
 router.post('/logout', logout);
 router.post('/refresh', refresh);
 
-// MFA setup requires the user to already be logged in (first-factor complete)
+
 router.post('/mfa/setup', requireAuth, setupMfa);
 router.post('/mfa/verify',  requireAuth, authRateLimiter,validateBody(mfaVerifySchema), verifyAndEnableMfa);//authRateLimiter,
 
-// Rate limited like login/register - password reset request is a classic abuse vector
-// (mass-emailing arbitrary addresses, or brute-forcing reset tokens on the confirm step)
+
 router.post('/forgot-password', authRateLimiter, validateBody(forgotPasswordSchema), forgotPassword);
 router.post('/reset-password', authRateLimiter, validateBody(resetPasswordSchema), resetPassword);
 router.patch('/change-password', requireAuth, validateBody(changePasswordSchema), changePassword);
