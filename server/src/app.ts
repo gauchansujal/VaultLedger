@@ -19,11 +19,9 @@ import { ipBlocklistGuard } from './middleware/ipFilter.middleware';
 export function createApp(): Application {
   const app = express();
 
-  // Trust first proxy (needed for correct client IP behind a load balancer/reverse proxy,
-  // which matters for rate limiting and audit logs)
+  
   app.set('trust proxy', 1);
 
-  // --- Security headers ---
   app.use(
     helmet({
       contentSecurityPolicy: {
