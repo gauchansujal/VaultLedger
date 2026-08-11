@@ -5,8 +5,7 @@ import { encryptField, decryptField } from '../utils/encryption';
 import { logAuditEvent } from '../utils/auditLogger';
 import { CreateTransactionInput, UpdateTransactionInput } from '../utils/validation/transaction.schema';
 
-// Shape returned to the client - decrypts the amount just before sending, never stores
-// or logs the plaintext amount anywhere else.
+
 function serializeTransaction(tx: HydratedDocument<ITransaction>) {
   return {
     id: tx.id as string,
@@ -23,9 +22,7 @@ function serializeTransaction(tx: HydratedDocument<ITransaction>) {
   };
 }
 
-/**
- * POST /api/transactions
- */
+
 export async function createTransaction(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const input = req.body as CreateTransactionInput;
@@ -40,8 +37,7 @@ export async function createTransaction(req: Request, res: Response): Promise<vo
     occurredAt: input.occurredAt ?? new Date(),
   });
 
-  // Re-fetch with the encrypted field selected (create() result already has it, but being
-  // explicit here documents the select:false behavior for future maintainers)
+
   const withAmount = await Transaction.findById(transaction._id).select('+amountEncrypted');
 
   await logAuditEvent({
@@ -49,19 +45,13 @@ export async function createTransaction(req: Request, res: Response): Promise<vo
     action: 'transaction.create',
     userId,
     metadata: { transactionId: transaction.id, type: input.type, category: input.category },
-    // Deliberately NOT logging the amount - financial values stay out of the audit trail's
-    // metadata even though the trail itself is access-controlled, as defense in depth.
+    
   });
 
   res.status(201).json(serializeTransaction(withAmount!));
 }
 
-/**
- * GET /api/transactions
- *
- * IDOR protection: query is ALWAYS scoped to req.user.sub. There is no way for a client
- * to request another user's transactions - no userId is ever accepted from the client.
- */
+
 export async function listTransactions(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
 
@@ -83,13 +73,7 @@ export async function listTransactions(req: Request, res: Response): Promise<voi
   });
 }
 
-/**
- * GET /api/transactions/:id
- *
- * IDOR protection: the query filters by BOTH _id AND userId. If a user requests an ID
- * belonging to someone else, the query returns null (404), not another user's data -
- * this is the core defense against Insecure Direct Object Reference attacks.
- */
+
 export async function getTransaction(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const { id } = req.params;
