@@ -26,4 +26,4 @@ router.patch('/users/:userId/role', validateBody(changeRoleSchema), changeUserRo
 router.get('/transactions', listAllTransactions);
 router.delete('/transactions/:id', deleteAnyTransaction);
 
-export default router;  transaction 
+export default router;  
