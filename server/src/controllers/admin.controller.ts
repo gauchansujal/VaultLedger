@@ -33,9 +33,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
   });
 }
 
-/**
- * GET /api/admin/users/:userId
- */
+
 export async function getUser(req: Request, res: Response): Promise<void> {
   const { userId } = req.params;
 
@@ -56,15 +54,6 @@ export async function getUser(req: Request, res: Response): Promise<void> {
   });
 }
 
-/**
- * PATCH /api/admin/users/:userId
- *
- * Deliberately narrow: only email is editable here. Role changes go through the
- * dedicated changeUserRole endpoint below, which has its own stricter safeguards
- * (e.g. cannot change your own role) - keeping them separate means that extra check
- * can't accidentally be bypassed by routing a role change through this more general
- * "edit user" endpoint instead.
- */
 export async function updateUser(req: Request, res: Response): Promise<void> {
   const adminId = req.user?.sub;
   const { userId } = req.params;
@@ -97,15 +86,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   res.status(200).json({ id: user.id, email: user.email, role: user.role });
 }
 
-/**
- * DELETE /api/admin/users/:userId
- *
- * Cascades to delete the user's transactions (their financial data has no purpose
- * without the account that owns it). Audit log entries are deliberately NOT deleted -
- * the audit trail's integrity as a historical record matters more than tidiness, and
- * this action itself gets logged, attributed to the admin who performed it, before
- * the target user record is removed.
- */
+
 export async function deleteUser(req: Request, res: Response): Promise<void> {
   const adminId = req.user?.sub;
   const { userId } = req.params;
