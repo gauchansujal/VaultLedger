@@ -1,11 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { env } from '../config/env';
 
-/**
- * Global IP blocklist - applied app-wide (mounted early in app.ts). If IP_BLOCKLIST is
- * empty, this is a no-op (fail open) so an empty/misconfigured env var can never
- * accidentally block all traffic.
- */
+
 export function ipBlocklistGuard(req: Request, res: Response, next: NextFunction): void {
   if (env.ipBlocklist.length === 0) {
     next();
