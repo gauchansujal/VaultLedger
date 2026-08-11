@@ -8,14 +8,14 @@ export interface IUser extends Document {
   role: UserRole;
   avatarUrl?: string;
   mfaEnabled: boolean;
-  mfaSecret?: string; // encrypted at rest (see utils/encryption.ts) before saving
+  mfaSecret?: string;
   failedLoginAttempts: number;
   lockUntil?: Date;
   passwordChangedAt?: Date;
-  passwordHistory: string[]; // hashes of previous passwords, capped at env.passwordHistoryLimit
+  passwordHistory: string[]; 
   passwordResetTokenHash?: string;
   passwordResetExpires?: Date;
-  refreshTokenVersion: number; // bumped to invalidate all existing refresh tokens (e.g. on password change/logout-all)
+  refreshTokenVersion: number; 
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,14 +28,13 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
-      // Basic format check only - full validation happens at the Zod layer before this ever runs.
-      // Defense in depth: schema-level validation is a second line of defense, not the primary one.
+      
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email format'],
     },
     passwordHash: {
       type: String,
       required: true,
-      select: false, // never returned by default on queries - must opt in with .select('+passwordHash')
+      select: false, 
     },
     role: {
       type: String,
@@ -51,7 +50,7 @@ const UserSchema = new Schema<IUser>(
     },
     mfaSecret: {
       type: String,
-      select: false, // sensitive - never returned by default
+      select: false, 
     },
     failedLoginAttempts: {
       type: Number,
@@ -63,15 +62,13 @@ const UserSchema = new Schema<IUser>(
     passwordChangedAt: {
       type: Date,
     },
-    // Never returned by default - contains password hashes, just like passwordHash itself.
+    
     passwordHistory: {
       type: [String],
       default: [],
       select: false,
     },
-    // Only the SHA-256 hash of the reset token is ever stored - never the raw token.
-    // This mirrors how passwords are never stored raw; if the database leaked, an
-    // attacker still couldn't reconstruct a usable reset token from the hash.
+   
     passwordResetTokenHash: {
       type: String,
       select: false,
