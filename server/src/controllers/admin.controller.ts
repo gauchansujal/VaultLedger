@@ -115,14 +115,6 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
   res.status(204).send();
 }
 
-/**
- * PATCH /api/admin/users/:userId/role
- *
- * Deliberately blocks an admin from changing their OWN role through this endpoint -
- * prevents an admin accidentally (or via a hijacked session) locking themselves out of
- * admin access, and prevents a compromised admin session being used to "downgrade" the
- * audit trail's attribution of who made a change.
- */
 export async function changeUserRole(req: Request, res: Response): Promise<void> {
   const adminId = req.user?.sub;
   const { userId } = req.params;
@@ -153,14 +145,7 @@ export async function changeUserRole(req: Request, res: Response): Promise<void>
   res.status(200).json({ id: user.id, email: user.email, role: user.role });
 }
 
-/**
- * GET /api/admin/transactions
- *
- * Cross-user visibility, deliberately isolated to this admin-only route rather than
- * extending the regular /api/transactions endpoints - keeps the "can see everyone's
- * data" capability in one clearly-marked place rather than threading an "isAdmin"
- * branch through the normal user-facing transaction controller.
- */
+
 export async function listAllTransactions(req: Request, res: Response): Promise<void> {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Number(req.query.limit) || 25);
@@ -195,14 +180,7 @@ export async function listAllTransactions(req: Request, res: Response): Promise<
   });
 }
 
-/**
- * DELETE /api/admin/transactions/:id
- *
- * For moderation/support purposes (e.g. removing a transaction at a user's request
- * without needing direct database access). Unlike the regular user-facing delete,
- * this is NOT scoped to req.user.sub - it's deliberately allowed to delete ANY
- * transaction, which is exactly why it's gated behind requireRole('system-admin').
- */
+
 export async function deleteAnyTransaction(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
 
