@@ -297,10 +297,6 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
 
   const user = await User.findOne({ email });
 
-  // Always return the same generic response whether or not the email exists - this is
-  // the standard anti-enumeration pattern for password reset endpoints specifically.
-  // Without this, an attacker could use "did I get a reset email?" as an oracle to
-  // discover which emails are registered.
   const genericResponse = () =>
     res.status(200).json({
       message: 'If an account exists for that email, a password reset link has been sent.',
@@ -311,10 +307,6 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     return;
   }
 
-  // Generate a random token, send the RAW token to the user, store only its hash.
-  // This mirrors password storage: even a full database leak doesn't hand an attacker
-  // usable reset tokens, because the hash alone can't be reversed back to the token
-  // that would need to be presented in the reset link.
   const rawToken = crypto.randomBytes(RESET_TOKEN_BYTES).toString('hex');
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
 
@@ -351,8 +343,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   }).select('+passwordResetTokenHash +passwordResetExpires +passwordHash +passwordHistory');
 
   if (!user) {
-    // Same message whether the token is invalid, expired, or already used (tokens are
-    // cleared after use, see below) - don't help an attacker distinguish these cases.
+  
     res.status(400).json({ message: 'This reset link is invalid or has expired.' });
     return;
   }
@@ -364,9 +355,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Push the outgoing password into history BEFORE overwriting it, capped at the
-  // configured limit (oldest dropped first) - this is what makes reuse prevention
-  // actually work across multiple resets, not just against the single most recent one.
+
   user.passwordHistory = [user.passwordHash, ...user.passwordHistory].slice(0, env.passwordHistoryLimit);
 
   user.passwordHash = await hashPassword(newPassword);
@@ -374,9 +363,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   user.passwordResetTokenHash = undefined;
   user.passwordResetExpires = undefined;
 
-  // Invalidate every existing session (all previously issued refresh tokens become
-  // worthless) - if the account was reset because it was compromised, this kicks out
-  // whoever was previously logged in, not just on the device doing the reset.
+  
   user.refreshTokenVersion += 1;
 
   await user.save();
@@ -386,15 +373,7 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   res.status(200).json({ message: 'Password reset successfully. Please sign in with your new password.' });
 }
 
-/**
- * PATCH /api/auth/change-password
- *
- * For a logged-in user proactively changing their password (distinct from the
- * forgot-password flow, which is for someone who can't log in at all). Requires the
- * CURRENT password as proof of intent - a stolen access token alone (e.g. via an XSS
- * bug, despite httpOnly cookies making that hard) shouldn't be enough to silently
- * take over the account by changing its password.
- */
+
 export async function changePassword(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
   const { currentPassword, newPassword } = req.body as ChangePasswordInput;
@@ -422,8 +401,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
   user.passwordHash = await hashPassword(newPassword);
   user.passwordChangedAt = new Date();
 
-  // Bump token version to sign out other sessions too - if the change was prompted by
-  // suspicion of compromise, this closes out whatever session an attacker had.
+
   user.refreshTokenVersion += 1;
 
   await user.save();
