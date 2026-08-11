@@ -24,7 +24,7 @@ import { requireAuth } from '../middleware/auth.middleware';
 
 const router = Router();
 
-router.post('/register', authRateLimiter, validateBody(registerSchema), register); regiter 
+router.post('/register', authRateLimiter, validateBody(registerSchema), register); 
 router.post('/login', authRateLimiter, validateBody(loginSchema), login);
 router.post('/logout', logout);
 router.post('/refresh', refresh);
