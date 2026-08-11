@@ -31,7 +31,7 @@ router.post('/refresh', refresh);
 
 // MFA setup requires the user to already be logged in (first-factor complete)
 router.post('/mfa/setup', requireAuth, setupMfa);
-router.post('/mfa/verify',  requireAuth, validateBody(mfaVerifySchema), verifyAndEnableMfa);//authRateLimiter,
+router.post('/mfa/verify',  requireAuth, authRateLimiter,validateBody(mfaVerifySchema), verifyAndEnableMfa);//authRateLimiter,
 
 // Rate limited like login/register - password reset request is a classic abuse vector
 // (mass-emailing arbitrary addresses, or brute-forcing reset tokens on the confirm step)
