@@ -66,8 +66,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
   }
 );
 
-// Compound index: fast lookup of "all events for user X, newest first" -
-// the primary query pattern for the Transparency Vault UI.
+
 AuditLogSchema.index({ userId: 1, createdAt: -1 });
 
 export const AuditLog: Model<IAuditLog> = mongoose.model<IAuditLog>('AuditLog', AuditLogSchema);
