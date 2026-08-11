@@ -128,12 +128,9 @@ export async function login(req: Request, res: Response): Promise<void> {
     }
   }
 
-  // MFA step
   if (user.mfaEnabled) {
     if (!mfaToken) {
-      // Signal to the client that this account requires a second factor.
-      // No tokens issued yet - MFA must be verified first (zero-trust: password alone is
-      // insufficient for accounts that opted into MFA).
+    
       res.status(200).json({ mfaRequired: true });
       return;
     }
@@ -143,7 +140,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       secret: decryptedSecret,
       encoding: 'base32',
       token: mfaToken,
-      window: 1, // allow 1 step (30s) of clock drift
+      window: 1, 
     });
 
     if (!verified) {
@@ -173,16 +170,14 @@ export async function login(req: Request, res: Response): Promise<void> {
 }
 
 export async function logout(req: Request, res: Response): Promise<void> {
-  // Best-effort: try to identify who's logging out for the audit trail, but never block
-  // the logout itself on an invalid/expired token - users must always be able to clear
-  // their session client-side.
+
   const token = req.cookies?.accessToken;
   if (token) {
     try {
       const payload = verifyAccessToken(token);
       await logAuditEvent({ req, action: 'user.logout', userId: payload.sub });
     } catch {
-      // token invalid/expired - nothing to attribute the logout to, proceed anyway
+      
     }
   }
 
@@ -205,15 +200,11 @@ export async function refresh(req: Request, res: Response): Promise<void> {
     const user = await User.findById(payload.sub);
 
     if (!user || user.refreshTokenVersion !== payload.tokenVersion) {
-      // Token version mismatch = token was revoked (e.g. password change, logout-all)
+      
       res.status(401).json({ message: 'Refresh token is no longer valid' });
       return;
     }
 
-    // Session binding check: this refresh token must be presented by the same
-    // browser/device that originally logged in. A mismatch here is treated the same as
-    // an invalid token and logged as a distinct audit event - a stolen-and-replayed
-    // refresh token is exactly the scenario this check exists to catch.
     if (payload.userAgentHash !== hashUserAgent(req)) {
       await logAuditEvent({
         req,
@@ -240,7 +231,7 @@ export async function refresh(req: Request, res: Response): Promise<void> {
   }
 }
 
-// --- MFA setup flow ---
+
 
 export async function setupMfa(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub; // populated by auth middleware (built next)
