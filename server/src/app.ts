@@ -36,7 +36,7 @@ export function createApp(): Application {
     })
   );
 
-  // --- CORS: only the known frontend origin, credentials allowed for httpOnly cookies ---
+ 
   app.use(
     cors({
       origin: env.clientOrigin,
@@ -45,10 +45,10 @@ export function createApp(): Application {
     })
   );
 
-  // --- IP blocklist (app-wide) - checked before anything else runs for the request ---
+  
   app.use(ipBlocklistGuard);
 
-  // --- Body parsing with size limits (mitigates payload-based DoS) ---
+
   app.use(express.json({ limit: '10kb' }));
   app.use(express.urlencoded({ extended: true, limit: '10kb' }));
   app.use(cookieParser());
