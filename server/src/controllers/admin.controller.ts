@@ -5,13 +5,7 @@ import { decryptField } from '../utils/encryption';
 import { logAuditEvent } from '../utils/auditLogger';
 import { ChangeRoleInput, AdminUpdateUserInput } from '../utils/validation/admin.schema';
 
-/**
- * GET /api/admin/users
- *
- * Access control: gated by requireRole('system-admin') in the router, not here - this
- * keeps the "who is allowed" decision in one central place (auth.middleware.ts) rather
- * than duplicated per-controller.
- */
+
 export async function listUsers(req: Request, res: Response): Promise<void> {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(100, Number(req.query.limit) || 25);
