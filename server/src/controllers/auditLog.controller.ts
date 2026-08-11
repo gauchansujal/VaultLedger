@@ -1,14 +1,7 @@
 import { Request, Response } from 'express';
 import { AuditLog } from '../models/AuditLog.model';
 
-/**
- * Returns the audit trail for the currently authenticated user only.
- * This is the "Transparency Vault" - the user-facing feature that lets a user see
- * every recorded action tied to their account (their own logins, MFA changes, etc.).
- *
- * IDOR protection: userId is taken from req.user (the verified JWT), never from a
- * client-supplied parameter - a user cannot pass someone else's ID to view their log.
- */
+
 export async function getMyAuditLog(req: Request, res: Response): Promise<void> {
   const userId = req.user?.sub;
 
@@ -30,10 +23,7 @@ export async function getMyAuditLog(req: Request, res: Response): Promise<void> 
   });
 }
 
-/**
- * Admin-only: view audit log for ANY user, or system-wide. Gated by requireRole('system-admin')
- * at the route level - this controller assumes that check already passed.
- */
+
 export async function getAuditLogForUser(req: Request, res: Response): Promise<void> {
   const { userId } = req.params;
 
