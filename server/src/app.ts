@@ -59,20 +59,17 @@ export function createApp(): Application {
 
   app.use(hpp());
 
-  // --- Logging (dev only; production logging goes through the audit log service, not stdout) ---
+
   if (env.nodeEnv !== 'production') {
     app.use(morgan('dev'));
   }
 
-  // --- Health check (unauthenticated, no sensitive data) ---
+
   app.get('/api/health', (_req: Request, res: Response) => {
     res.status(200).json({ status: 'ok' });
   });
 
-  // --- Static avatar serving ---
-  // Read-only, no directory listing, no dotfiles, cache headers set - filenames served
-  // here are always server-generated UUIDs (see user.controller.ts uploadAvatar), never
-  // derived from user input, so there is no path traversal surface here.
+ 
   app.use(
     '/uploads/avatars',
     express.static(path.join(process.cwd(), 'uploads', 'avatars'), {
